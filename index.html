@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自选页 AI 陪伴 · 交互演示 Demo</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#111827; --panel2:#0e1420; --line:#223047;
+    --text:#e7eef8; --muted:#8b98ab; --accent:#4da3ff; --accent-2:#38bdf8;
+    --up:#f25c5c; --down:#2ecc8f; --amber:#f5b85c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text); overflow:hidden;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  }
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-thumb{background:#2a3b55;border-radius:3px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  /* ===== Top bar ===== */
+  .topbar{height:58px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#38bdf8);
+    color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px;letter-spacing:.5px}
+  .brand-title{font-size:16px;font-weight:700;letter-spacing:.5px}
+  .brand-sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .top-actions{display:flex;gap:10px}
+  .btn{border:1px solid var(--line);background:transparent;color:var(--text);
+    padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;transition:.18s;white-space:nowrap}
+  .btn:hover{background:#1a2740}
+  .btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);border-color:transparent;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.12)}
+  .btn.ghost-light{border-color:#3a4f6e}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ===== Stage layout ===== */
+  .stage{display:grid;grid-template-columns:296px 1fr 356px;gap:12px;
+    height:calc(100vh - 58px);padding:12px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    display:flex;flex-direction:column;overflow:hidden}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;
+    padding:12px 14px;font-size:13px;font-weight:700;letter-spacing:.4px;
+    border-bottom:1px solid var(--line);flex:0 0 auto}
+  .badge{font-size:10px;background:var(--amber);color:#241400;border-radius:8px;padding:1px 8px;font-weight:700}
+  .badge.hidden{display:none}
+
+  /* ===== Left: watchlist ===== */
+  .watch-body{flex:1;overflow-y:auto;padding:10px}
+  .banner{border-radius:9px;padding:9px 11px;margin-bottom:10px;font-size:12px;line-height:1.55;display:none}
+  .banner.show{display:block}
+  .banner.up{background:rgba(242,92,92,.13);border:1px solid rgba(242,92,92,.35)}
+  .banner.down{background:rgba(46,204,143,.12);border:1px solid rgba(46,204,143,.35)}
+  .banner.mid{background:rgba(245,184,92,.1);border:1px solid rgba(245,184,92,.3)}
+  .banner .b-title{font-weight:800;margin-bottom:2px}
+  .banner .b-ann{color:var(--muted);font-size:11px}
+  .stock-list{list-style:none}
+  .stock-item{display:flex;align-items:center;justify-content:space-between;
+    padding:11px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;
+    background:var(--panel2);transition:.2s;position:relative}
+  .stock-item .nm{font-weight:700;font-size:13px}
+  .stock-item .cd{font-size:10px;color:var(--muted);margin-top:2px}
+  .stock-item .pr{text-align:right}
+  .stock-item .px{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+  .stock-item .chg{font-size:12px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+  .up-c{color:var(--up)} .down-c{color:var(--down)} .flat-c{color:var(--muted)}
+  .stock-item .tag{position:absolute;top:-7px;left:-1px;font-size:9px;font-weight:800;
+    background:var(--accent);color:#062;display:none;border-radius:0 8px 8px 0;padding:1px 8px;letter-spacing:.5px}
+  .stock-item .tag{color:#06122a}
+  .stock-item.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 18px rgba(77,163,255,.25)}
+  .stock-item.active .tag{display:block}
+  @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(242,92,92,.5)}70%{box-shadow:0 0 0 9px rgba(242,92,92,0)}100%{box-shadow:0 0 0 0 rgba(242,92,92,0)}}
+  .stock-item.pulse{border-color:var(--accent)}
+  .watch-note{color:var(--muted);font-size:10.5px;text-align:center;padding:8px}
+
+  /* ===== Middle: chat ===== */
+  .chat-body{flex:1;overflow-y:auto;padding:14px 14px 6px}
+  .msg{display:flex;gap:9px;margin-bottom:13px;animation:rise .25s ease}
+  .msg.user{flex-direction:row-reverse}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .avatar{width:34px;height:34px;border-radius:50%;flex:0 0 34px;display:flex;align-items:center;
+    justify-content:center;font-size:12px;font-weight:800}
+  .avatar.ai{background:linear-gradient(135deg,#2563eb,#38bdf8);color:#fff}
+  .avatar.me{background:#293f61;color:#cfe2ff}
+  .mcol{max-width:78%;display:flex;flex-direction:column}
+  .msg.user .mcol{align-items:flex-end}
+  .mname{font-size:10px;color:var(--muted);margin:0 4px 4px}
+  .bubble{padding:9px 13px;border-radius:12px;font-size:13.5px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
+  .msg.ai .bubble{background:#1b2639;border-top-left-radius:3px}
+  .msg.user .bubble{background:linear-gradient(135deg,#2b5eb0,#2563eb);border-top-right-radius:3px;color:#fff}
+  .bubble ul{margin:6px 0 2px;padding-left:18px}
+  .bubble li{margin:3px 0}
+  .bubble .b-note{font-size:11.5px;color:var(--muted);margin-top:7px}
+  .cursor{display:inline-block;width:7px;height:15px;background:var(--accent-2);
+    vertical-align:-2px;margin-left:2px;animation:blink .8s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .typing-dot{display:inline-flex;gap:4px;align-items:center;padding:4px 2px}
+  .typing-dot i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:bounce 1.2s infinite}
+  .typing-dot i:nth-child(2){animation-delay:.15s}.typing-dot i:nth-child(3){animation-delay:.3s}
+  @keyframes bounce{0%,60%,100%{transform:none;opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+  .divider{text-align:center;font-size:10px;color:var(--muted);margin:4px 0 12px;letter-spacing:1px}
+  .cta-row{display:flex;justify-content:center;padding:2px 0 12px}
+
+  /* ===== Right: think panel ===== */
+  .tag-mini{font-size:10px;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:1px 9px;font-weight:600}
+  .tag-mini.running{color:var(--accent-2);border-color:rgba(56,189,248,.5)}
+  .tag-mini.done{color:var(--down);border-color:rgba(46,204,143,.5)}
+  .think-body{flex:1;overflow-y:auto;padding:10px 12px}
+  .grp{margin:6px 0 4px;font-size:11px;color:var(--muted);letter-spacing:.6px;display:flex;align-items:center;gap:8px}
+  .grp::after{content:"";flex:1;height:1px;background:var(--line)}
+  .tstep{display:flex;gap:9px;margin:7px 0;opacity:.45;transition:opacity .2s}
+  .tstep.show{opacity:1}
+  .tstep .dot{width:14px;height:14px;border-radius:50%;flex:0 0 14px;margin-top:3px;background:#2a3b55;position:relative}
+  .tstep.run .dot{background:var(--accent-2);animation:glow 1s infinite}
+  .tstep.run .dot::before{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--accent-2);opacity:.6;animation:ring 1s infinite}
+  @keyframes glow{50%{box-shadow:0 0 8px var(--accent-2)}}
+  @keyframes ring{to{transform:scale(1.35);opacity:0}}
+  .tstep.done .dot{background:var(--down)}
+  .tstep.done .dot::after{content:"\2713";color:#042;font-size:9px;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900}
+  .tstep .tname{font-size:12px;font-weight:700}
+  .tstep .tval{font-size:11px;color:#a9b8cc;line-height:1.65;margin-top:2px;white-space:pre-wrap}
+  .tstep.run .tname{color:var(--accent-2)}
+  .tstep.done .tname{color:#9fe8c6}
+  .tstep.hit .tval b{color:var(--amber)}
+  .think-empty{color:var(--muted);font-size:12px;text-align:center;padding:40px 10px;line-height:2}
+
+  /* ===== Help overlay ===== */
+  .help{position:fixed;inset:0;background:rgba(4,8,15,.72);display:none;align-items:center;justify-content:center;z-index:50}
+  .help.show{display:flex}
+  .help-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:640px;
+    width:92%;padding:22px 24px;max-height:82vh;overflow-y:auto;font-size:13px;line-height:1.9;color:#c6d3e6}
+  .help-box h3{color:#fff;margin-bottom:8px}
+  .help-box code{background:#0b1526;padding:1px 7px;border-radius:5px;color:#7dd3fc;font-size:12px}
+  .help-box .close{float:right;background:#2a3b55;border:none;color:#fff;border-radius:7px;padding:5px 12px;cursor:pointer}
+
+  .composer{flex:0 0 auto;border-top:1px solid var(--line);padding:10px 12px 12px}
+  .type-head{margin-bottom:7px}
+  .type-head .lbl{font-size:11px;color:var(--muted);letter-spacing:.3px}
+  .type-head .lbl b{color:#cfe2ff}
+  .type-bar{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:4px}
+  .tbtn{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#b9c8dd;
+    background:#16233a;border:1px solid var(--line);padding:5px 11px;border-radius:15px;cursor:pointer;
+    white-space:nowrap;transition:.15s}
+  .tbtn:hover{background:#1d3050;color:#fff}
+  .tbtn.active{background:rgba(37,99,235,.25);border-color:var(--accent);color:#fff}
+  .tbtn .no{font-size:9px;color:#5d7294;font-weight:800;letter-spacing:.5px}
+  .tbtn.active .no{color:var(--accent-2)}
+  .type-desc{font-size:11px;color:#9fb2c8;margin:7px 2px 8px;line-height:1.6}
+  .samples{display:flex;flex-direction:column;gap:6px}
+  .sample{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;
+    background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 11px;
+    cursor:pointer;color:#c9d6ea;font-size:12.5px;line-height:1.65;transition:.15s}
+  .sample:hover{border-color:var(--accent);background:#16233a}
+  .sample:disabled{opacity:.5;cursor:not-allowed}
+  .sample .k{flex:0 0 auto;font-size:10px;font-weight:800;background:rgba(77,163,255,.16);
+    color:#9cc8ff;border-radius:6px;padding:1px 7px;margin-top:3px;white-space:nowrap}
+  .sample .txt{flex:1}
+  .sample .send-ic{color:var(--muted);flex:0 0 auto;font-size:11px;align-self:center;margin-left:8px}
+  .free-row{margin-top:9px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .free-toggle{font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;padding:3px 0}
+  .free-toggle:hover{color:#fff}
+  .free-note{font-size:10px;color:#5d7294}
+  .input-row{display:flex;gap:8px;margin-top:8px}
+  .hidden{display:none!important}
+  .input-row input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:10px 12px;font-size:13px;outline:none}
+  .input-row input:focus{border-color:var(--accent)}
+
+  @media (max-width:1160px){
+    body{overflow:auto}
+    .stage{grid-template-columns:1fr;height:auto}
+    .watch-body,.chat-body,.think-body{max-height:380px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">AI</div>
+    <div>
+      <div class="brand-title">自选页 AI 陪伴 · 交互演示</div>
+      <div class="brand-sub">看懂波动 · 安放情绪 — 依据《产品主张说明》《回应过程设计说明》构建</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button class="btn" id="btnHelp">运行说明</button>
+    <button class="btn primary" id="btnReplay">重新随机一组信号</button>
+  </div>
+</header>
+
+<main class="stage">
+  <!-- 左：自选列表（信号出现处） -->
+  <aside class="panel">
+    <div class="panel-head">
+      <span>我的自选</span>
+      <span class="badge hidden" id="signalBadge">信号推送</span>
+    </div>
+    <div class="watch-body">
+      <div class="banner" id="signalBanner"></div>
+      <ul class="stock-list" id="stockList"></ul>
+    </div>
+    <div class="watch-note">信号由行情 + 公告事件随机生成（示例数据，非真实个股）</div>
+  </aside>
+
+  <!-- 中：对话区 -->
+  <section class="panel">
+    <div class="panel-head">
+      <span id="chatHead">陪伴会话</span>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="composer">
+      <div class="type-head">
+        <span class="lbl">演示者操作台 · 选择一种<b>用户发言类型</b>，模拟真实用户此刻会说出口的话</span>
+      </div>
+      <div class="type-bar" id="typeBar"></div>
+      <div class="type-desc" id="typeDesc">先选一种发言类型，下方将结合当前信号的个股与公告自动生成该类型话术。</div>
+      <div class="samples" id="samples"></div>
+      <div class="free-row">
+        <button class="free-toggle" id="btnFreeToggle">＋ 自由输入（真实键盘输入模式）</button>
+        <span class="free-note" id="freeNote">示例话术已按当前信号实时生成</span>
+      </div>
+      <div class="input-row hidden" id="freeRow">
+        <input id="msgInput" placeholder="输入用户此刻想说的话…（自由输入模式）" maxlength="120">
+        <button class="btn primary" id="btnSend">发送</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右：AI 思考过程（流式展示运行链路） -->
+  <aside class="panel">
+    <div class="panel-head">
+      <span>AI 思考过程 · 运行链路</span>
+      <span class="tag-mini" id="thinkTag">待命</span>
+    </div>
+    <div class="think-body" id="thinkBody"></div>
+  </aside>
+</main>
+
+<!-- 运行说明 -->
+<div class="help" id="help">
+  <div class="help-box">
+    <button class="close" onclick="toggleHelp()">关闭</button>
+    <h3>运行说明</h3>
+    <p><b>零依赖、可独立运行：</b>本 Demo 为单个 HTML 文件（HTML + CSS + 原生 JS），无框架、无构建、无后端、无网络请求。</p>
+    <p><b>启动方式（任选其一）：</b></p>
+    <p>1）直接用浏览器打开 <code>demo/index.html</code>（双击即可，file:// 下可正常运行）；</p>
+    <p>2）或在项目根目录执行 <code>http-server -c-1</code>，访问 <code>http://localhost:8080/demo/</code>。</p>
+    <h3 style="margin-top:12px">演示流程</h3>
+    <p>① 页面加载即自动随机一组自选信号：左侧自选列表出现信号横幅与个股高亮 → AI 主动推送一条盘面解读（主动触达）；</p>
+    <p>② 在下方"演示者操作台"选择一种<b>用户发言类型</b>（01 直接情绪宣泄 / 02 讽刺阴阳 / 03 对平台不满 / 04 质疑公司 / 05 决策纠结 / 06 灾难化放大 / 07 自责求安慰 / 08 冷静询问），系统会结合当前信号的个股、涨跌幅、量能与公告实时生成该类话术，点击示例句即模拟用户发送；</p>
+    <p>③ 展开"自由输入"可模拟真实键盘输入（含"割肉 / 要不要追"等决策词会触发合规交还路径）；</p>
+    <p>④ 右侧"AI 思考过程"按运行链路（信号解析 → 强度定级 → 情绪识别 → 意图识别 → 路由 → 合规分流 → 事实组装 → 措辞校验）逐条流式呈现；</p>
+    <p>⑤ 中部对话区以打字机效果输出三段式安抚回复：共情 → 事实 → 决策交还；</p>
+    <p>⑥ 点击右上角"重新随机一组信号"可反复体验不同信号 × 不同发言类型的组合；类型切换后示例句自动按新信号重写。</p>
+    <h3 style="margin-top:12px">与设计文档的对应</h3>
+    <p>信号定级 S1/S2/S3、情绪分级 E0~E3、路由路径 A/B/C/D、决策交还四动作、避免指令类措辞等逻辑，均按《回应过程设计说明》实现；股票与公告内容均为随机示例，非真实个股与披露信息，请勿作为投资依据。</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= 工具 ================= */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rnd = (min, max, dec) => { const x = min + Math.random() * (max - min); return dec ? +x.toFixed(dec) : x; };
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const signTxt = r => (r >= 0 ? "+" + r.toFixed(2) : r.toFixed(2));
+
+/* ================= 数据：自选池 ================= */
+const STOCKS = [
+  { name: "中科曙光",  code: "603019", base: 46.20 },
+  { name: "北方华创",  code: "002371", base: 318.50 },
+  { name: "东方财富",  code: "300059", base: 15.86 },
+  { name: "宁德时代",  code: "300750", base: 201.40 },
+  { name: "比亚迪",    code: "002594", base: 243.10 },
+  { name: "贵州茅台",  code: "600519", base: 1668.0 },
+  { name: "药明康德",  code: "603259", base: 67.80 },
+  { name: "京东方Ａ",  code: "000725", base: 4.12 }
+];
+
+/* ============ 用户发言类型库（演示者选择，模拟真实用户） ============
+   概括 8 种典型发言形态：每种都结合"当前信号"（个股名/涨跌幅/量能/公告）实时生成话术，
+   且句子内嵌情绪词，使运行链路能真实演示"情绪识别→路由→共情/交还"过程。 */
+const SPEECH_TYPES = [
+  { id: "vent",      no: "01", name: "直接情绪宣泄",   desc: "不绕弯子，直接倒出恐慌、焦虑与慌张——盘中最高频的发言形态。系统策略：先共情锚点，再给事实。" },
+  { id: "sarcasm",   no: "02", name: "讽刺阴阳怪气",   desc: "用反话、自嘲表达不满，字面云淡风轻，底层仍是焦虑。系统策略：识别字面之下的情绪，不接茬较真。" },
+  { id: "platform",  no: "03", name: "对平台/产品不满", desc: "情绪迁怒到 App 本身：推送慢、数据卡、提醒马后炮。系统策略：先接住情绪，不辩解、不甩锅。" },
+  { id: "company",   no: "04", name: "质疑标的公司",    desc: "针对上市公司基本面、管理层、公告诚意发表意见与怀疑。系统策略：用已披露事实回应，不与用户一起站队。" },
+  { id: "decision",  no: "05", name: "决策纠结咨询",    desc: "嘴上在问“要不要卖 / 追 / 加仓”，背后是焦虑与冲动——最易触碰合规红线。系统策略：走路径 D，把判断交还用户。" },
+  { id: "doom",      no: "06", name: "灾难化放大",      desc: "把一次波动放大成退市、清零、崩盘的灾难叙事，情绪强度最高（E3）。系统策略：低信息密度陪伴，防极端。" },
+  { id: "selfblame", no: "07", name: "自责与求安慰",    desc: "把亏损归咎于自己，流露自我怀疑与疲惫。系统策略：接住自责、温和肯定，而非讲道理或说教。" },
+  { id: "calm",      no: "08", name: "冷静理性询问",    desc: "中性信息询问（对照组，E0）。系统策略：走路径 B 事实解读，展示“不越界地讲清楚”。" }
+];
+
+/* 场景分组工具 */
+const vq = s => s.v >= 2.5 ? "放量" : (s.v <= 0.5 ? "缩量" : "平量");
+const evTxt = s => ({ preLoss: "业绩预亏公告", reduce: "股东减持预告", preGain: "业绩预增/回购公告" }[s.scenario] || "");
+const ctxOf = s => ({
+  name: s.stock.name, code: s.stock.code,
+  a: Math.abs(s.r).toFixed(1), up: s.r >= 0,
+  v: s.v.toFixed(1), vq: vq(s), ev: evTxt(s),
+  ann: evTxt(s) ? `，又碰上盘前${evTxt(s)}` : ""
+});
+const bucketOf = s =>
+  s.scenario === "preLoss" || s.scenario === "reduce" ? "annBad" :
+  s.scenario === "gapdown" || s.scenario === "shrink" ? "negPx" :
+  s.scenario === "rushup" || s.scenario === "preGain" ? "pos" : "flat";
+
+/* 例句生成器：每种类型针对 公告利空 / 盘面下行 / 上涨利好 / 中性 四类情境各出 2 句 */
+const GEN = {
+  vent(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") return [
+      `完了完了，${c.name}跌了${c.a}%${c.ann}，我攒的钱是不是要没了，真的好慌`,
+      `怎么偏偏是我选的这只，盘前出这种事，${c.name}血亏${c.a}%，我真的害怕，烦死了`
+    ];
+    if (bucketOf(s) === "negPx") return [
+      `${c.name}今天${c.vq}下跌${c.a}%，这么大根阴线，我整个人都慌了，真的怕它一直跌下去`,
+      `${c.name}${c.vq}跌了${c.a}%，我都不知道该怎么办了，心跳好快，慌得不行`
+    ];
+    if (bucketOf(s) === "pos") return [
+      `${c.name}涨了${c.a}%我心里反而发慌，怕一冲高就全跌回来又白高兴，烦死了`,
+      `${c.name}涨这么快我却开心不起来，总觉得会站岗，心里七上八下好烦`
+    ];
+    return [
+      `${c.name}这几天不上不下，我天天盯盘心慌，好烦，早知道不该一直守着`,
+      `大盘在涨它在跌，大盘在跌它跌更狠，拿着${c.name}真折磨人，我慌`
+    ];
+  },
+  sarcasm(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") return [
+      `${c.name}跌得可真漂亮，公告也发得真及时，我的钱就当浇灌“韭菜园”了，呵呵，我居然一点都不慌——我大概是没救了`,
+      `恭喜${c.name}跌出新纪录，也恭喜我的钱成功“越跌越多”，服了，我真是没救了，居然还笑得出来`
+    ];
+    if (bucketOf(s) === "negPx") return [
+      `${c.name}的K线真是艺术品，跌${c.a}%都跌得这么有节奏，我居然还能笑着自嘲，真是没救了`,
+      `${c.vq}阴跌${c.a}%，${c.name}这是要把我熬成“股东世家”啊，呵呵，感动得想哭，慌倒是没慌`
+    ];
+    if (bucketOf(s) === "pos") return [
+      `${c.name}今天居然学会上涨了，涨了${c.a}%我是不是该给主力磕个头？呵呵，我慌得都开始感恩了`,
+      `涨成这样我反而更害怕，${c.name}是想把我骗进来再杀吗？呵呵，我怕`
+    ];
+    return [
+      `${c.name}真是“稳如老狗”，稳得我都不敢看了，呵呵，主要怕它哪天突然吓我一跳`,
+      `每天都是这副死样子，${c.name}不会在憋什么大招吧，呵呵，我慌我先说`
+    ];
+  },
+  platform(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") return [
+      `这破软件，利空公告拖到现在才弹给我，我看到时${c.name}都跌了${c.a}%了，你们是不是故意的？气死我了，烦死了`,
+      `${c.name}跌了${c.a}%我居然是看新闻才知道的，自选推送呢？你们的监控是摆设吗，这体验真差，气死我了，烦死了`
+    ];
+    if (bucketOf(s) === "negPx") return [
+      `盘中${c.a}%的跌幅，你们行情页还能卡成PPT，我等价格刷新出来都收盘了，气死我了，烦死了`,
+      `信号推送就只会马后炮，跌完了才提醒，要你们何用，天天弹广告倒是很积极，烦死了，气死我了`
+    ];
+    if (bucketOf(s) === "pos") return [
+      `${c.name}涨了${c.a}%倒是推送得飞快，我一秒都没耽误，怎么跌的时候你们就集体掉线？这破App真是没救了`,
+      `天天推这些没用的破消息，看得我心烦，你们就不能让我安静一会儿吗？烦死了，气死我了`
+    ];
+    return [
+      `大盘资讯、概念板块、弹窗广告…你们这App真是无所不推，就是不推点有用的，烦死了，气死我了`,
+      `${c.name}一个自选搞这么多提醒，涨也提醒跌也提醒，能不能别吵了，烦死了，气死我了`
+    ];
+  },
+  company(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") {
+      if (s.scenario === "reduce") return [
+        `大股东都在跑，${c.name}这公司我看是没救了，跟着减持的散户是不是都傻啊，气死我了`,
+        `减持还减得理直气壮，${c.name}的治理是不是出了大问题？我真怕这不是个好信号`
+      ];
+      return [
+        `${c.name}管理层到底在干嘛，一次性减值就能亏${c.a}%，这账谁信？我是不是上当了，气死我了`,
+        `${c.name}这公司还有救吗？${c.ev}写得云里雾里，我看就是想糊弄我们小散，真没救了`
+      ];
+    }
+    if (bucketOf(s) === "negPx") return [
+      `跌了${c.a}%连个说法都没有，${c.name}管理层是把我们当空气吗？这公司真是没救了，气死我了`,
+      `基本面到底有没有雷？${c.name}这么个跌法，我怀疑他们报的业绩有水分，气死我了，烦死了`
+    ];
+    if (bucketOf(s) === "pos") {
+      if (s.scenario === "preGain") return [
+        `就靠一个${c.ev}就涨${c.a}%？${c.name}的业绩真有那么好？上次它画饼我就上当了，这次我可不信，气死我了`,
+        `涨得越猛我越觉得${c.name}有问题，这种套路我见多了，上次信了它们的公司我已经亏惨了，我真怕`
+      ];
+      return [
+        `${c.name}没消息就涨了${c.a}%，这种走势管理层自己信吗？我看又是游资在炒，气死我了，烦死了`,
+        `涨得越猛我越觉得${c.name}有问题，这种套路我见多了，上次信了它们的公司我已经亏惨了，我真怕`
+      ];
+    }
+    return [
+      `${c.name}天天这副死样子，公司到底行不行也不给个说法，气死我了，烦死了`,
+      `${c.name}这家公司看着就让人不放心，财报我都不敢细看，怕看了更慌`
+    ];
+  },
+  decision(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") return [
+      `${c.name}跌了${c.a}%${c.ann}，我现在是该割肉认亏还是拿着死扛？好纠结`,
+      `${c.ev}这么差，我要不要先清仓避一避？又怕卖了就反弹，真的好烦`
+    ];
+    if (bucketOf(s) === "negPx") return [
+      `${c.name}今天${c.vq}跌了${c.a}%，要不要止损？我怕再跌下去亏更多，拿不定主意`,
+      `跌成这样我慌得不行，你说我该不该现在割掉${c.name}？给个话吧`
+    ];
+    if (bucketOf(s) === "pos") return [
+      `${c.name}涨了${c.a}%${c.ann}，我要不要追进去？怕踏空，又怕一进去就站岗`,
+      `涨得这么好，要不要加仓？还是先拿着？我拿不准，好烦`
+    ];
+    return [
+      `${c.name}一直不动，我要不要卖掉换别的？还是再等等？好烦`,
+      `现在是加仓的时机吗？还是继续等？我看不懂了`
+    ];
+  },
+  doom(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") return [
+      `完了完了，${c.ev}是不是意味着${c.name}要退市了？我的钱是不是要清零了，我好怕`,
+      `崩了崩了，${c.name}跌成这样又出这种事，是不是要破产退市？我攒的血汗钱啊，好恐惧`
+    ];
+    if (bucketOf(s) === "negPx") return [
+      `完了完了，${c.name}${c.vq}跌了${c.a}%还在跌，是不是要崩盘了？会不会连着跌到退市，我整个人都慌了`,
+      `${c.name}是不是没救了？我听说这种走势最后都会退市清零，我怕到不行`
+    ];
+    if (bucketOf(s) === "pos") return [
+      `完了完了，涨这么快肯定是主力出货前兆，${c.name}是不是马上要崩了？我好怕这是最后疯狂`,
+      `越涨我越觉得是陷阱，${c.name}不会想骗我接盘再崩吧？再崩就完了，我慌死了`
+    ];
+    return [
+      `大盘这走势看着就不对，${c.name}是不是也要跟着完了？我好怕是不是股灾要来了，好恐惧`,
+      `最近总感觉${c.name}要出事，每天都提心吊胆，会不会哪天突然崩了清零了，我怕`
+    ];
+  },
+  selfblame(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") return [
+      `都怪我当初手贱买了${c.name}，现在亏这么多，我真的很后悔，是不是我根本不适合炒股`,
+      `是我眼光太差选中它，${c.ev}当头一棒，都怪我，我真的很后悔，是不是很蠢，唉，烦死了`
+    ];
+    if (bucketOf(s) === "negPx") return [
+      `${c.name}又跌${c.a}%，是不是我运气太差，买什么跌什么？我真的后悔入市，好烦`,
+      `每次大跌我都在场，${c.name}是不是被我克了？我真的后悔碰股票，早知道就不玩了，心好累`
+    ];
+    if (bucketOf(s) === "pos") return [
+      `${c.name}涨了${c.a}%我也不敢开心，怕自己又拿不住，我是不是心态太差？真的好烦`,
+      `涨得再好我也赚不到，上次就是这样拿不住的，我真的后悔没拿稳，好烦`
+    ];
+    return [
+      `每天看盘心情都跟着${c.name}上上下下，看得心里发慌，好累，我是不是根本不适合投资，烦死了`,
+      `都说炒股要心态好，可我一看到${c.name}就焦虑，我怕自己扛不住，是不是太脆弱了`
+    ];
+  },
+  calm(s) {
+    const c = ctxOf(s);
+    if (bucketOf(s) === "annBad") return [
+      `这个${c.ev}主要是因为什么？是主业的问题还是一次性的？想了解一下`,
+      `${c.ev}披露后一般多久会落地？实际影响从哪些方面看`
+    ];
+    if (bucketOf(s) === "negPx") return [
+      `今天${c.name}${c.vq}跌了${c.a}%，我想看看量能和历史相比是什么水平`,
+      `${c.name}这根阴线之后，历史上一般怎么走？有历史数据可以参考吗`
+    ];
+    if (bucketOf(s) === "pos") {
+      if (s.scenario === "preGain") return [
+        `这个${c.ev}属于超预期吗？市场主要关注哪些点`,
+        `${c.name}涨了${c.a}%，这种涨幅的持续性怎么看？量能支持吗`
+      ];
+      return [
+        `${c.name}今天涨了${c.a}%，这种上涨主要是消息面还是资金面驱动？想听听数据`,
+        `${c.name}涨了${c.a}%后量能是什么水平？历史上到过这个位置后面怎么走`
+      ];
+    }
+    return [
+      `${c.name}最近的K线走势能帮我看看吗？主要是现什么形态`,
+      `今天波动不大，我想复盘一下${c.name}最近的量价关系`
+    ];
+  }
+};
+
+/* ================= 情绪 / 意图词库 ================= */
+const LEX = {
+  panic:    { w: ["完了","退市","崩了","废了","血亏","暴跌","慌","怕","恐惧","没救"],            score: 2.0, name: "恐慌" },
+  regret:   { w: ["早知道","后悔","不该买","手贱","破股","垃圾","烦","气死","上当","还我"],      score: 1.5, name: "懊悔" },
+  decision: { w: ["割","卖","清仓","加仓","抄底","止损","追","梭","满仓","买不买","跑不跑","走不走","出吗","止盈"], score: 0, name: "决策" },
+  urge:     { w: ["追涨","怕踏空","站岗","梭哈","抢"],                                             score: 1.4, name: "追涨冲动" }
+};
+const DECISION_MARK = s => LEX.decision.w.some(w => s.includes(w));
+
+function emotionOf(text) {
+  const hits = [], cats = [];
+  let score = 0;
+  const exclaim = (text.match(/[!！?？]/g) || []).length;
+  for (const key of ["panic","regret","decision","urge"]) {
+    const hit = LEX[key].w.filter(w => text.includes(w));
+    if (hit.length) { hits.push(...hit); score += LEX[key].score * Math.min(hit.length, 3); if (key !== "decision") cats.push(LEX[key].name); }
+  }
+  score += Math.min(exclaim, 3) * 0.4;
+  let level, summary;
+  if (cats.includes("恐慌") && cats.includes("懊悔")) summary = "恐慌 + 懊悔";
+  else summary = cats.slice(0, 2).join(" + ") || "情绪平稳";
+  if (score >= 5) level = "E3 强烈情绪";
+  else if (score >= 2.5) level = "E2 明显焦虑";
+  else if (score >= 1) level = "E1 轻微波动";
+  else level = "E0 平静";
+  const intent = DECISION_MARK(text) ? "decision" : (score >= 2 ? "venting" : "info");
+  const scoreShow = +score.toFixed(1);
+  return { hits, score: scoreShow, level, summary, intent };
+}
+
+/* ================= 信号生成与定级 ================= */
+function makeSignal(stock) {
+  const roll = Math.random();
+  let scenario, r, v, event;
+  if (roll < 0.40) {                       // 负面公告：业绩预亏 / 减持
+    if (Math.random() < 0.6) { scenario = "preLoss"; r = -rnd(4.5, 9.9, 1); v = rnd(1.8, 4.5, 1);
+      event = "盘前披露 Q3 业绩预告：预计亏损，主因某业务一次性减值准备"; }
+    else { scenario = "reduce"; r = -rnd(2.0, 6.8, 1); v = rnd(1.0, 3.2, 1);
+      event = "盘前披露股东减持预告（拟减持比例不超过 2%，示例）"; }
+  } else if (roll < 0.66) {                // 纯盘面剧烈异动
+    const down = Math.random() < 0.55;
+    scenario = down ? "gapdown" : "rushup";
+    r = down ? -rnd(3.0, 9.9, 1) : rnd(3.0, 9.5, 1); v = rnd(1.5, 4.5, 1); event = null;
+  } else if (roll < 0.82) {                // 正面公告：预增 / 回购
+    scenario = "preGain"; r = rnd(1.5, 5.5, 1); v = rnd(1.0, 3.0, 1);
+    event = "盘前披露业绩预增 / 回购增持相关安排（示例）";
+  } else if (roll < 0.94) {                // 缩量阴跌
+    scenario = "shrink"; r = -rnd(0.8, 3.0, 1); v = rnd(0.3, 0.5, 1); event = null;
+  } else {                                  // 温和
+    scenario = "mild"; r = rnd(-1.6, 1.6, 1); v = rnd(0.6, 1.6, 1); event = null;
+  }
+  const a = Math.abs(r);
+  let label;
+  if (scenario === "preLoss") label = "公告后放量急跌";
+  else if (scenario === "reduce") label = "公告后异动下跌";
+  else if (scenario === "preGain") label = "公告后放量上行";
+  else if (scenario === "rushup") label = a >= 5 && v >= 2.5 ? "放量急涨" : "显著上涨";
+  else if (scenario === "gapdown") label = a >= 5 && v >= 2.5 ? "放量急跌" : "显著下跌";
+  else if (scenario === "shrink") label = "缩量阴跌";
+  else label = "常规波动";
+  const level = levelOf(r, v, scenario);
+  return { stock, scenario, r, v, event, label, level };
+}
+
+function levelOf(r, v, scenario) {
+  const a = Math.abs(r);
+  const annHit = (scenario === "preLoss" || scenario === "reduce") && a >= 3 && v >= 1.8;
+  if (a >= 7 || (a >= 5 && v >= 2.5) || annHit || (v >= 4 && a >= 4)) return { s: "S3", d: "重大异动" };
+  if (a >= 3 || v >= 2.5 || a >= 5) return { s: "S2", d: "显著异动" };
+  return { s: "S1", d: "常规波动" };
+}
+
+/* ================= 页面状态 ================= */
+const STATE = { signal: null, busy: false };
+
+/* ================= 左栏：自选列表 ================= */
+function renderStocks(activeCode) {
+  const ul = $("#stockList"); ul.innerHTML = "";
+  STOCKS.forEach(st => {
+    const price = STATE.signal && STATE.signal.stock.code === st.code ? st.base * (1 + STATE.signal.r / 100) : st.base;
+    const chg = STATE.signal && STATE.signal.stock.code === st.code ? STATE.signal.r : 0;
+    const li = document.createElement("li");
+    li.className = "stock-item" + (activeCode === st.code ? " active" : "");
+    li.dataset.code = st.code;
+    const cls = chg > 0 ? "up-c" : chg < 0 ? "down-c" : "flat-c";
+    const arrow = chg > 0 ? "▲" : chg < 0 ? "▼" : "";
+    li.innerHTML =
+      `<span class="tag">盘中信号</span>
+       <div><div class="nm">${st.name}</div><div class="cd">${st.code} · 昨收 ${st.base.toFixed(2)}</div></div>
+       <div class="pr"><div class="px ${cls}">${price.toFixed(2)}</div>
+       <div class="chg ${cls}">${arrow} ${signTxt(chg)}%</div></div>`;
+    ul.appendChild(li);
+  });
+}
+
+function showSignal(s) {
+  const up = s.r >= 0;
+  const a = Math.abs(s.r).toFixed(1);
+  const dir = up ? "上涨" : "下跌";
+  const banner = $("#signalBanner");
+  banner.className = "banner show " + (up ? "up" : s.scenario === "shrink" || s.scenario === "mild" ? "mid" : "down");
+  banner.innerHTML =
+    `<div class="b-title">${s.stock.name} · ${s.label} ${up ? "+" : ""}${a}%</div>
+     <div class="b-ann">量比 ${s.v}（近5日均量）｜强度 ${s.level.s} ${s.level.d}${s.event ? "｜" + s.event : ""}</div>`;
+  $("#signalBadge").classList.remove("hidden");
+  renderStocks(s.stock.code);
+  $("#chatHead").textContent = "陪伴会话 · " + s.stock.name;
+}
+
+/* ================= 对话区 ================= */
+function addAiMsg(head) {
+  const wrap = document.createElement("div"); wrap.className = "msg ai";
+  const col = document.createElement("div"); col.className = "mcol";
+  const name = document.createElement("div"); name.className = "mname"; name.textContent = head || "自选 AI 陪伴";
+  const bubble = document.createElement("div"); bubble.className = "bubble";
+  col.append(name, bubble); wrap.append(col);
+  const av = document.createElement("div"); av.className = "avatar ai"; av.textContent = "AI";
+  wrap.prepend(av);
+  $("#chatBody").appendChild(wrap); scrollChat();
+  return bubble;
+}
+function addUserMsg(text, typeName) {
+  const wrap = document.createElement("div"); wrap.className = "msg user";
+  const av = document.createElement("div"); av.className = "avatar me"; av.textContent = "我";
+  const col = document.createElement("div"); col.className = "mcol";
+  const name = document.createElement("div"); name.className = "mname";
+  name.textContent = typeName ? `您 · 【发言类型 ${typeName}】` : "您 · 【自由输入】";
+  const bubble = document.createElement("div"); bubble.className = "bubble"; bubble.textContent = text;
+  col.append(name, bubble); wrap.append(av, col);
+  $("#chatBody").appendChild(wrap); scrollChat();
+}
+function addTyping() {
+  const b = addAiMsg("自选 AI 陪伴 · 正在整理回应");
+  const dots = document.createElement("div"); dots.className = "typing-dot";
+  dots.innerHTML = "<i></i><i></i><i></i>";
+  b.appendChild(dots); scrollChat();
+  return { bubble: b, dots };
+}
+function scrollChat() { const c = $("#chatBody"); c.scrollTop = c.scrollHeight; }
+
+async function typeText(el, text, speed) {
+  const cur = document.createElement("span"); cur.className = "cursor";
+  el.appendChild(cur);
+  for (const ch of text) { cur.before(document.createTextNode(ch)); await sleep(speed || 26); }
+  cur.remove(); scrollChat();
+}
+
+/* ================= 思考面板 ================= */
+function thinkState(txt) {
+  const tag = $("#thinkTag"); tag.textContent = txt; tag.className = "tag-mini " + txt;
+}
+function addGroup(title) {
+  const g = document.createElement("div"); g.className = "grp"; g.textContent = title;
+  $("#thinkBody").appendChild(g); scrollThink();
+}
+function addStep(name, val, opts) {
+  return new Promise(async resolve => {
+    const body = $("#thinkBody");
+    const node = document.createElement("div");
+    node.className = "tstep show";
+    node.innerHTML = `<div class="dot"></div><div><div class="tname"></div><div class="tval"></div></div>`;
+    node.querySelector(".tname").textContent = name;
+    node.querySelector(".tval").innerHTML = val || "";
+    body.appendChild(node); scrollThink();
+    node.classList.add("run"); thinkState("分析中");
+    await sleep((opts && opts.ms) || 620);
+    node.classList.remove("run");
+    node.classList.add(opts && opts.done ? "done" : "done");
+    if (opts && opts.hit) node.classList.add("hit");
+    scrollThink();
+    resolve();
+  });
+}
+function scrollThink() { const t = $("#thinkBody"); t.scrollTop = t.scrollHeight; }
+
+/* ================= 首条推送（路径 A · 主动触达） ================= */
+async function runSignalTouch(s) {
+  addGroup("信号推送 · 主动触达（路径 A）");
+  const up = s.r >= 0;
+  const a = Math.abs(s.r).toFixed(1);
+  const dir = up ? "上涨" : "下跌";
+  await addStep("信号接收", `${s.stock.name}（${s.stock.code}） 当日 ${dir} ${a}%，量比 ${s.v} → 标签：${s.label}`, { ms: 520 });
+  await addStep("强度定级", `|r|=${a}% ｜ 量比=${s.v} ｜ ${s.event ? "含公告事件" : "纯盘面异动"} → ${s.level.s} ${s.level.d}`, { ms: 520 });
+  await addStep("触达策略", "S2/S3 信号 → 主动推送一条轻量解读（不轰炸、可关闭），等待用户发言", { ms: 520 });
+}
+
+/* ================= 完整回应链路（路径 C / D / B） ================= */
+async function runReplyPipeline(s, emo, typeName) {
+  addGroup("用户发言处理 · 完整运行链路");
+  const a = Math.abs(s.r).toFixed(1);
+  const dir = s.r >= 0 ? "上涨" : "下跌";
+  await addStep("信号解析（复用上下文）", `${s.stock.name} 当日 ${dir} ${a}%，量比 ${s.v}，标签 ${s.label}`, { ms: 500 });
+
+  let lvlNote = "";
+  if (s.level.s === "S3") lvlNote = "→ 命中重大异动规则，情绪处理优先级最高";
+  else if (s.level.s === "S2") lvlNote = "→ 显著异动，回复先共情";
+  else lvlNote = "→ 常规波动，正常话术";
+  await addStep("强度定级", `${s.level.s} ${s.level.d}${lvlNote}`, { ms: 520 });
+
+  const hitTxt = emo.hits.length ? emo.hits.map(w => "“" + w + "”").join("、") : "无明显情绪词";
+  const typeNote = typeName ? `发言类型（演示预设）：${typeName}\n` : "发言类型：自由输入（非预设话术）\n";
+  await addStep("情绪识别（读您的发言）", typeNote + `命中词汇：${hitTxt}（得分 ${emo.score}）→ ${emo.level} · ${emo.summary}`, { ms: 560, hit: emo.hits.length > 0 });
+
+  let intentTxt;
+  if (emo.intent === "decision") intentTxt = "命中买卖决策词 → 决策咨询（含情绪宣泄成分，需最谨慎）";
+  else if (emo.intent === "venting") intentTxt = "以情绪宣泄为主 → 先共情、降低信息密度";
+  else intentTxt = "信息询问为主 → 走解读模式";
+  await addStep("意图识别", intentTxt, { ms: 520 });
+
+  let routeTxt;
+  if (emo.intent === "decision") routeTxt = "<b>路径 D 合规交还</b>（叠加路径 C 共情优先：C 的结构、D 的边界）";
+  else if (emo.intent === "venting") routeTxt = "<b>路径 C 共情优先</b>（共情锚点 → 轻解读 → 情绪收尾）";
+  else routeTxt = s.level.s !== "S1" ? "<b>路径 C 轻量</b> + 解读（信号强度高，仍需先安情绪）" : "<b>路径 B 事实解读</b>";
+  await addStep("路由决策", routeTxt, { ms: 560 });
+
+  if (emo.intent === "decision") {
+    await addStep("合规分流 · 拒答开关命中", '检测到决策词（买卖/加减仓）→ <b>不提供任何买卖建议</b>，启用固定交还话术', { ms: 560, hit: true });
+  } else {
+    await addStep("合规分流", "未命中决策词 → 无需启用拒答开关，正常陪伴回应", { ms: 520 });
+  }
+
+  const facts = factSummary(s);
+  await addStep("事实组装（检索/行情/公告）", facts, { ms: 640 });
+
+  await addStep("措辞校验", '扫描生成内容：指令类（建议/赶紧/必须/一定）与确定性词（肯定/必然）<b>均未检出</b> → 通过；注入"数据源 + 时间戳"标注与免责声明', { ms: 560 });
+  await addStep("回复定稿", "三段式结构：共情 → 事实 → 决策交还；情绪状态 " + emo.level.split(" ")[0] + " 写入上下文缓存，便于回访", { ms: 420 });
+  thinkState("已完成");
+}
+
+function factSummary(s) {
+  const a = Math.abs(s.r).toFixed(1);
+  const lines = [];
+  lines.push(`行情｜今日 ${a}%，量比 ${s.v}`);
+  if (s.event) lines.push(`公告｜${s.event}（示例，以公告原文为准）`);
+  else if (s.scenario === "gapdown") lines.push(`公告｜无新增公告，盘面量价驱动`);
+  else lines.push(`公告｜无新增公告`);
+  lines.push(`K线｜单日 ${a}% 波动并非首次，同类幅度后 5 日无一致方向规律`);
+  return lines.map(l => "· " + l).join("\n");
+}
+
+/* ================= 三段式安抚回复构建 ================= */
+function buildReply(s, emo) {
+  const a = Math.abs(s.r).toFixed(1);
+  const dir = s.r >= 0 ? "上涨" : "下跌";
+  const name = s.stock.name;
+  const P = []; // paragraphs
+
+  // —— ① 共情段 ——
+  let intro;
+  if (s.scenario === "preLoss" || s.scenario === "reduce") {
+    const annShort = s.scenario === "preLoss" ? "Q3 业绩预亏公告" : "股东减持预告";
+    intro = `看到 ${name} 今天${dir}${a}%，又赶上盘前的${annShort}，账面浮亏扩大——心里发慌，甚至有些后悔当初买入，都是很正常的反应。先别急着做任何决定，我陪您把这件事拆开看看。`;
+  } else if (s.r >= 3) {
+    intro = `看到 ${name} 今天${dir}${a}%、放量上行，兴奋之余也容易上头——我陪您把盘面拆开看，看得越清楚，越不需要在情绪最高点做决定。`;
+  } else if (s.scenario === "shrink") {
+    intro = `${name} 今天${dir}${a}%，但成交量缩到了近 5 日均量的 ${s.v} 倍，属于典型的缩量状态。先别慌，我陪您看看数据。`;
+  } else if (s.r < 0) {
+    intro = `看到 ${name} 今天${dir}${a}%，账面浮亏在扩大，先别急着动作，我陪您把盘面和消息面都摊开看一看。`;
+  } else {
+    intro = `看到 ${name} 今天${dir}${a}%，我陪您把这份信号拆开看看，信息越清楚，心里越踏实。`;
+  }
+  P.push(intro);
+
+  // —— ② 事实段 ——
+  P.push({ bullets: factBullets(s, dir, a) });
+
+  // —— ③ 交还段 ——
+  P.push(`我不会对您“该不该买 / 卖”做任何判断——这笔钱怎么决定，只有您自己最清楚。`);
+  P.push(`如果您愿意，可以先试着回答自己三个问题，再慢慢决定：`);
+  P.push(`① 当初买入 ${name}，您看中的逻辑是什么？现在这个理由还在吗？`);
+  P.push(`② 这笔浮亏在您可投资金与生活储备里的占比，会让您今晚睡不好吗？`);
+  P.push(`③ 如果明天再波动 ${a}%，这个决定的结果，您还愿意承担吗？`);
+  P.push(`我唯一想说的、也与买卖无关：无论最后怎么选，都请给自己至少一个收盘后的平静时间，再确认下一步。`);
+  P.push(`需要的话，我可以陪您把${s.event ? "公告原文和财务变化" : "近期 K 线与关注点"}慢慢捋一遍——我就在这儿陪着您。`);
+  return P;
+}
+
+function factBullets(s, dir, a) {
+  const name = s.stock.name;
+  const b = [];
+  if (s.v >= 2.5) b.push(`今日 ${dir} ${a}%，成交量为近 5 日均量的 ${s.v} 倍，属于明显的${s.r >= 0 ? "放量上攻" : "放量下挫"}——量能是当下最值得关注的事实之一（数据源：实时行情）。`);
+  else if (s.v <= 0.5) b.push(`今日 ${dir} ${a}%，但成交仅为近 5 日均量的 ${s.v} 倍——缩量状态下，抛压并不极端（数据源：实时行情）。`);
+  else b.push(`今日 ${dir} ${a}%，成交量约为近 5 日均量的 ${s.v} 倍（数据源：实时行情）。`);
+  if (s.scenario === "preLoss") b.push(`盘前公告（已披露）：Q3 业绩预亏，公告显示亏损主要来自某业务的一次性减值准备，而非主营经营恶化——“一次性”与“经常性”的区别，是解读这份预告的关键（以公告原文为准）。`);
+  else if (s.scenario === "reduce") b.push(`盘前公告（已披露）：股东披露减持预告。减持动机多样（个人资金安排等），且“减持计划”不等于立即执行，可结合后续进展跟进（以公告原文为准）。`);
+  else if (s.scenario === "preGain") b.push(`盘前公告（已披露）：公司披露业绩预增 / 回购相关安排，属基本面向上的公开信息，但仍需留意“利好兑现”后的市场反应（以公告原文为准）。`);
+  else if (s.scenario === "rushup") b.push(`从量价结构看，上行伴随放量，说明有资金关注；但放量也意味着分歧加大，短线波动可能更剧烈——这是中性观察，不是方向判断。`);
+  b.push(`从 ${name} 的历史 K 线看，单日 ${a}% 的波动并非首次；过去一年内类似幅度波动发生后，后续 5 个交易日并不存在一致的方向规律——一天的行情本身，并不等于后面的走势。`);
+  return b;
+}
+
+/* ================= 打字输出 ================= */
+async function outputReply(bubble, paragraphs) {
+  const label = document.createElement("div");
+  label.className = "b-note"; label.textContent = "回应结构：共情 → 事实 → 决策交还（数据源标注 · 非投资建议）";
+  for (const p of paragraphs) {
+    if (typeof p === "string") {
+      const node = document.createElement("p"); bubble.appendChild(node);
+      await typeText(node, p, 24);
+    } else {
+      const ul = document.createElement("ul"); bubble.appendChild(ul);
+      for (const it of p.bullets) { const li = document.createElement("li"); ul.appendChild(li); await typeText(li, it, 20); }
+    }
+  }
+  bubble.appendChild(label);
+  scrollChat();
+  await sleep(350);
+}
+
+/* ================= 演示主流程 ================= */
+async function startReplay() {
+  if (STATE.busy) return;
+  STATE.busy = true;
+  $("#btnReplay").disabled = true; $("#btnSend").disabled = true;
+  $("#chatBody").innerHTML = ""; $("#thinkBody").innerHTML = ""; $("#signalBanner").className = "banner";
+  thinkState("信号解析中");
+  await sleep(300);
+
+  // 1) 随机信号 + 列表高亮
+  const s = makeSignal(pick(STOCKS));
+  STATE.signal = s;
+  showSignal(s);
+  addGroup("新信号会话开始");
+  await addStep("随机信号生成", `选中自选股：${s.stock.name}，场景：${scenarioName(s.scenario)}`, { ms: 420 });
+
+  // 2) 主动推送（路径 A）
+  const a0 = Math.abs(s.r).toFixed(1);
+  const up0 = s.r >= 0;
+  const dir0 = up0 ? "上涨" : "下跌";
+  const b1 = addAiMsg("盘中信号 · 主动触达");
+  await typeText(b1, `${s.stock.name} 出现${s.label}信号：今日 ${dir0} ${a0}%，量能为近 5 日均量的 ${s.v} 倍。${s.event ? "盘前公告：" + s.event + "。" : ""}\n有想问的、想说的，随时可以告诉我，我陪着您。`, 22);
+  await runSignalTouch(s);
+
+  // 3) 等待用户（演示者）
+  const d = document.createElement("div"); d.className = "divider";
+  d.textContent = "轮到演示者 —— 选一种“用户发言类型”，点示例句模拟发送（或展开下方自由输入）";
+  $("#chatBody").appendChild(d); scrollChat();
+  thinkState("等待用户");
+  STATE.busy = false;
+  $("#btnReplay").disabled = false; $("#btnSend").disabled = false;
+  renderSamples();
+}
+function scenarioName(sc) {
+  return ({ preLoss: "业绩预亏公告", reduce: "减持预告", preGain: "正面公告", rushup: "放量急涨", gapdown: "放量急跌", shrink: "缩量阴跌", mild: "常规波动" })[sc];
+}
+
+async function handleSend(text, meta) {
+  if (STATE.busy) return;
+  if (!STATE.signal) { await startReplay(); return; }
+  if (!text || !text.trim()) { toggleFreeRow(true); $("#msgInput").focus(); return; }
+  text = text.trim().slice(0, 120);
+  STATE.busy = true;
+  $("#btnReplay").disabled = true; $("#btnSend").disabled = true;
+  setSamplesDisabled(true);
+  $("#msgInput").value = "";
+
+  const typeName = (meta && meta.label) || null;
+  addUserMsg(text, typeName);
+  const { bubble } = addTyping();
+
+  const emo = emotionOf(text);
+  await runReplyPipeline(STATE.signal, emo, typeName);
+
+  // 输出安抚回复
+  const paragraphs = buildReply(STATE.signal, emo);
+  await outputReply(bubble, paragraphs);
+
+  // 收尾
+  const cta = document.createElement("div"); cta.className = "cta-row";
+  const bt = document.createElement("button"); bt.className = "btn primary"; bt.textContent = "再体验一组信号";
+  bt.onclick = startReplay;
+  cta.appendChild(bt);
+  $("#chatBody").appendChild(cta); scrollChat();
+
+  STATE.busy = false;
+  $("#btnReplay").disabled = false; $("#btnSend").disabled = false;
+  setSamplesDisabled(false);
+  thinkState("已完成");
+}
+
+/* ================= 发言类型选择面板 ================= */
+let curTypeId = "vent";
+const typeNameOf = id => (SPEECH_TYPES.find(t => t.id === id) || {}).name || "";
+
+function buildTypeBar() {
+  const bar = $("#typeBar"); bar.innerHTML = "";
+  SPEECH_TYPES.forEach(t => {
+    const b = document.createElement("button");
+    b.className = "tbtn";
+    b.innerHTML = `<span class="no">${t.no}</span><span>${t.name}</span>`;
+    b.onclick = () => { curTypeId = t.id; refreshPicker(); };
+    bar.appendChild(b);
+  });
+  refreshPicker();
+}
+
+function refreshPicker() {
+  $$("#typeBar .tbtn").forEach((b, i) => b.classList.toggle("active", SPEECH_TYPES[i].id === curTypeId));
+  const t = SPEECH_TYPES.find(x => x.id === curTypeId);
+  if (t) $("#typeDesc").textContent = `【${t.no} ${t.name}】${t.desc}（演示预设话术 · 非投资建议）`;
+  renderSamples();
+}
+
+function renderSamples() {
+  const box = $("#samples"); box.innerHTML = "";
+  if (!STATE.signal) {
+    box.innerHTML = `<div class="sample" style="cursor:default;opacity:.6">等待信号生成后，此处将给出该类型话术…</div>`;
+    return;
+  }
+  const label = typeNameOf(curTypeId);
+  const note = $("#freeNote");
+  note.textContent = `话术已按当前信号（${STATE.signal.stock.name}）实时生成 · 点击即发送`;
+  const list = GEN[curTypeId] ? GEN[curTypeId](STATE.signal) : [];
+  (list || []).slice(0, 3).forEach(txt => {
+    const b = document.createElement("button");
+    b.className = "sample"; b.disabled = STATE.busy;
+    b.innerHTML = `<span class="k">${label}</span><span class="txt"></span><span class="send-ic">发送 →</span>`;
+    b.querySelector(".txt").textContent = txt;
+    b.title = "点击模拟用户发送：" + txt;
+    b.onclick = () => handleSend(txt, { label });
+    box.appendChild(b);
+  });
+}
+
+function setSamplesDisabled(dis) { $$("#samples .sample").forEach(b => { b.disabled = dis; }); }
+
+function toggleFreeRow(forceShow) {
+  const r = $("#freeRow");
+  const show = forceShow === undefined ? r.classList.contains("hidden") : !!forceShow;
+  r.classList.toggle("hidden", !show);
+  $("#btnFreeToggle").textContent = show ? "－ 收起自由输入" : "＋ 自由输入（真实键盘输入模式）";
+  if (show) $("#msgInput").focus();
+}
+
+function toggleHelp() { $("#help").classList.toggle("show"); }
+
+$("#btnReplay").onclick = startReplay;
+$("#btnFreeToggle").onclick = () => toggleFreeRow();
+$("#btnSend").onclick = () => { const v = $("#msgInput").value; if (v.trim()) handleSend(v); };
+$("#msgInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); const v = $("#msgInput").value; if (v.trim()) handleSend(v); }
+});
+$("#btnHelp").onclick = toggleHelp;
+$("#help").onclick = e => { if (e.target === $("#help")) toggleHelp(); };
+
+/* ================= 启动 ================= */
+buildTypeBar();
+renderStocks();
+(async () => {
+  const welcome = addAiMsg("自选页 AI 陪伴");
+  await typeText(welcome, "您好，我是您的自选陪伴助手。市场出现波动信号时，您可以随时把想说的告诉我，我会陪您把信号拆开看清楚。现在为您生成一组随机自选信号…", 24);
+  await startReplay();
+})();
+</script>
+</body>
+</html>
